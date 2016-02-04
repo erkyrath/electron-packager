@@ -41,6 +41,16 @@ module.exports = {
       var helperPlist = plist.parse(fs.readFileSync(helperPlistFilename).toString())
 
       // Update plist files
+
+      // If an extend-info file was supplied, copy its contents in first.
+      if (opts['extend-info']) {
+        var extendPlist = plist.parse(fs.readFileSync(opts['extend-info']).toString())
+        for (var key in extendPlist) {
+          appPlist[key] = extendPlist[key]
+        }
+      }
+
+      // Now set fields based on explicit options
       var defaultBundleName = 'com.electron.' + opts.name.toLowerCase().replace(/ /g, '_')
       var appVersion = opts['app-version']
       var buildVersion = opts['build-version']
@@ -60,7 +70,7 @@ module.exports = {
         appPlist.CFBundleVersion = buildVersion
       }
 
-      if (opts.protocols) {
+      if (opts.protocols && opts.protocols.length) {
         appPlist.CFBundleURLTypes = opts.protocols.map(function (protocol) {
           return {
             CFBundleURLName: protocol.name,
@@ -78,6 +88,7 @@ module.exports = {
 
       var operations = []
 
+      // Copy in the icon, if supplied
       if (opts.icon) {
         operations.push(function (cb) {
           common.normalizeExt(opts.icon, '.icns', function (err, icon) {
@@ -87,6 +98,17 @@ module.exports = {
             } else {
               ncp(icon, path.join(contentsPath, 'Resources', 'atom.icns'), cb)
             }
+          })
+        })
+      }
+
+      // Copy in any other extras
+      var extras = opts['extra-resource']
+      if (extras) {
+        if (!Array.isArray(extras)) extras = [extras]
+        extras.forEach(function (val) {
+          operations.push(function (cb) {
+            ncp(val, path.join(contentsPath, 'Resources', path.basename(val)), cb)
           })
         })
       }
